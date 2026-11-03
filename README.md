@@ -25,7 +25,7 @@
 corepack enable
 
 # 1. MySQL 띄우기
-docker compose up -d
+docker compose up -d    # MySQL 8.4 가 호스트 포트 3307 로 뜬다. 볼륨이 처음 생길 때 docker/mysql/init 의 SQL 이 한 번 실행된다
 
 # 2. 환경변수
 cp .env.example .env
@@ -75,6 +75,8 @@ src/
 scripts/
   concurrency-test.ts    # 동시 요청 테스트 2종 (완성본)
   seed-bulk.ts           # EXPLAIN 실험용 대량 데이터 (완성본)
+docker/
+  mysql/init/            # MySQL 볼륨 최초 생성 시 한 번 실행되는 SQL (app 계정에 migrate dev 용 권한)
 docs/
   DOMAIN.md / ROADMAP.md / TERMS.md
 ```
