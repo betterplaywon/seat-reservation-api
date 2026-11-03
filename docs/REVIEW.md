@@ -26,8 +26,8 @@
 
 ### 요약
 
-- [ ] 1. 차단 · `prisma migrate dev` 가 섀도 DB 권한 오류(P3014)로 실패할 가능성 · 1단계
-- [ ] 2. 차단 · 이 머신에 Docker 가 없고 3306 을 네이티브 MySQL 이 점유 · 1단계
+- [x] 1. 차단 · `prisma migrate dev` 가 섀도 DB 권한 오류(P3014)로 실패할 가능성 · 1단계
+- [x] 2. 차단 · 이 머신에 Docker 가 없고 3306 을 네이티브 MySQL 이 점유 · 1단계
 - [ ] 3. 결함 · `.env` 의 `APP_TIMEZONE` 이 `date.ts` 에 반영되지 않음 · 1단계
 - [ ] 4. 결함 · `HttpExceptionFilter` 주석("응답이 멈춘다")이 실제와 다름 · 주석은 지금, 구현은 5단계
 - [ ] 5. 개선 · `ValidationPipe` 와 DTO 기본 데코레이터를 3단계 전에 먼저 켜기 · 3단계 전
@@ -39,6 +39,7 @@
 - [ ] 11. 메모 · 3단계 TODO 17개를 세 묶음으로 나눠 진행 · 3단계
 - [ ] 12. 메모 · 4단계 전 구조 결정: 좌석·층 확인은 트랜잭션 안 직접 조회, `FloorsModule` 의 미사용 export · 4단계
 - [ ] 13. 메모 · 자동 테스트·린트 부재. 5단계에 e2e 테스트 1개 · 5단계
+- [ ] 14. 메모 · `package.json#prisma`(seed 설정)가 Prisma 7 에서 제거 예정, `prisma.config.ts` 로 이전 · Prisma 7 업그레이드 시
 
 ### 아키텍처 · MVP 범위 판단 (변경 불필요)
 
@@ -51,17 +52,17 @@
 
 ### 상세
 
-#### 1. `prisma migrate dev` 섀도 DB 권한 (차단 · 문서 근거)
+#### 1. `prisma migrate dev` 섀도 DB 권한 (차단 · 실행 확인)
 
 - 위치: `.env.example:10` (`DATABASE_URL` 의 `app` 계정), `docker-compose.yml:17` (`MYSQL_USER: app`), `README.md:38`
-- 증상: README 4단계 `pnpm prisma:migrate` 가 `P3014 Prisma Migrate could not create the shadow database` 로 실패할 가능성이 높다.
+- 증상: README 4단계 `pnpm prisma:migrate` 가 `P3014 Prisma Migrate could not create the shadow database` 로 실패한다. 2026-11-03 에 권한 없는 컨테이너로 재현했다(아래 처리).
 - 원인: MySQL 공식 이미지는 `MYSQL_USER` 계정에 `GRANT ALL ON seat_reservation.*` 만 준다. `migrate dev` 는 섀도 데이터베이스를 새로 만들어 마이그레이션을 검증하므로 서버 전역 `CREATE, ALTER, DROP, REFERENCES ON *.*` 가 필요하다. 운영에서 쓰는 `migrate deploy` 는 섀도 DB 가 필요 없으므로 `app` 계정으로 충분하다.
 - 수정 방향 (하나 선택)
   - A. 로컬 개발은 root 로: `.env.example` 을 `DATABASE_URL="mysql://root:root@localhost:3306/seat_reservation"` 으로. 가장 단순하다.
   - B. `app` 유지 + 섀도 DB 만 root: `prisma/schema.prisma` datasource 에 `shadowDatabaseUrl = env("SHADOW_DATABASE_URL")` 추가, `.env.example` 에 root 접속 문자열 추가.
   - C. `app` 에 전역 권한: `docker-compose.yml` 에 초기화 SQL 볼륨(`/docker-entrypoint-initdb.d/`)을 추가하고 `GRANT CREATE, ALTER, DROP, REFERENCES ON *.* TO 'app'@'%';` 를 넣는다. 초기화 SQL 은 볼륨을 처음 만들 때만 실행되므로 이미 띄운 적이 있으면 `docker compose down -v` 가 필요하다.
 - 완료 기준: 새 클론에서 README "시작하기" 를 순서대로 실행해 `pnpm prisma:migrate` 가 한 번에 통과하고 `prisma/migrations/` 가 생성된다.
-- 처리:
+- 처리: 2026-11-03 · 브랜치 `fix/local-db-setup`, C안. init SQL 없는 동일 설정에서 `P3014` (`P1010 User was denied access on the database prisma_migrate_shadow_db_…`) 재현 → `docker/mysql/init/01-grant-migrate.sql` 적용 후 `migrate dev --name init` 통과, `down -v` 재생성 시 SQL 재실행 확인. 머지는 PR 리뷰 후.
 
 #### 2. Docker 없음 + 3306 포트 점유 (차단 · 실행 확인)
 
@@ -71,7 +72,7 @@
   - A. Docker Desktop 또는 OrbStack 설치 + 포트 변경: `ports: "3307:3306"`, `DATABASE_URL` 의 포트도 3307. `seed-bulk.ts` 가 안내하는 `docker exec ... mysql` 은 컨테이너 내부 접속이라 그대로 둔다. 6단계(배포)에서 어차피 컨테이너로 가므로 이쪽을 권장.
   - B. 네이티브 MySQL 9.2 사용: `CREATE DATABASE seat_reservation; CREATE USER 'app'@'localhost' IDENTIFIED BY 'app1234'; GRANT ALL ON seat_reservation.* TO 'app'@'localhost'; GRANT CREATE, ALTER, DROP, REFERENCES ON *.* TO 'app'@'localhost';` 를 실행하고 `.env` 만 맞춘다. Prisma 6 의 MySQL 9 공식 지원 여부를 먼저 확인할 것.
 - 완료 기준: `GET /health` 가 `{ status: 'ok', db: 'ok' }` 를 돌려준다.
-- 처리:
+- 처리: 2026-11-03 · 같은 브랜치, A안. Docker Desktop 29.9.2 설치됨. compose 호스트 포트 `3307:3306`, `.env.example` 포트 3307. 앱 기동 후 `GET /health` → `{ status: "ok", db: "ok" }` 확인. 3306 점유는 포트 변경으로 회피.
 
 #### 3. `.env` 의 `APP_TIMEZONE` 이 `date.ts` 에 반영되지 않음 (결함 · 실행 확인)
 
@@ -212,6 +213,14 @@
 
 - 동시성 스크립트 외에 회귀를 잡는 장치가 없다. 학습 MVP 라 허용 범위.
 - 5단계에서 `@nestjs/testing` + supertest 로 e2e 테스트 1개(`/health` 와 400 응답 형식)만 붙이면 6단계 배포 전 체크로 쓸 수 있다. ESLint 는 `nest new` 기본 설정을 가져오면 된다.
+- 처리:
+
+#### 14. `package.json#prisma` 설정의 Prisma 7 제거 예정 (메모 · 실행 확인)
+
+- 위치: `package.json` 의 `"prisma": { "seed": "ts-node prisma/seed.ts" }`
+- 증상: `prisma migrate dev` 실행 시 경고. `The configuration property package.json#prisma is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., prisma.config.ts)`. Prisma 6 에서는 그대로 동작한다.
+- 수정 방향: Prisma 7 로 올릴 때 `prisma.config.ts` 로 옮긴다(https://pris.ly/prisma-config). 지금은 바꾸지 않는다.
+- 완료 기준: Prisma 7 업그레이드 후 `pnpm db:seed` 와 `prisma migrate reset` 의 시드가 동작한다.
 - 처리:
 
 ### 재검증 명령
