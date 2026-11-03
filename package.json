@@ -1,0 +1,50 @@
+{
+  "name": "seat-reservation-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "사내 좌석 예약 API (가상 회사 Gapsang Korea) - NestJS + MySQL + Prisma 학습용 MVP 스캐폴딩",
+  "scripts": {
+    "build": "nest build",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main",
+    "format": "prettier --write \"src/**/*.ts\" \"scripts/**/*.ts\" \"prisma/**/*.ts\"",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "db:seed": "prisma db seed",
+    "seed:bulk": "ts-node scripts/seed-bulk.ts",
+    "test:concurrency": "ts-node scripts/concurrency-test.ts",
+    "todo": "grep -rn \"TODO \\[\" src prisma scripts docker-compose.yml .env.example pnpm-workspace.yaml | sort"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/config": "^4.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/swagger": "^11.0.0",
+    "@prisma/client": "^6.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/schematics": "^11.0.0",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "prettier": "^3.3.0",
+    "prisma": "^6.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=10"
+  },
+  "packageManager": "pnpm@10.28.0"
+}

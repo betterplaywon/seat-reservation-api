@@ -1,0 +1,33 @@
+# 로컬 개발용 MySQL.
+# 용어: 이미지(image) / 컨테이너(container) / 볼륨(volume) / 헬스체크(healthcheck)
+#   - 이미지는 설계도, 컨테이너는 그 설계도로 띄운 실행 인스턴스.
+#   - 볼륨이 없으면 컨테이너를 지울 때 DB 데이터도 같이 사라진다.
+#
+# TODO [6단계] 앱 자체도 컨테이너로 띄우기. 상세 계획은 docs/ROADMAP.md 의 "배포" 섹션.
+#   (Dockerfile 작성 + app 서비스 추가 + depends_on: condition: service_healthy)
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: seat-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: seat_reservation
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app1234
+    ports:
+      - "3306:3306"
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  mysql-data:

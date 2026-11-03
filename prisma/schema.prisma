@@ -1,0 +1,94 @@
+// Prisma 스키마 = DB 테이블 구조의 "단일 진실 공급원".
+// 이 파일을 바꾸면 `pnpm prisma:migrate` 로 마이그레이션 파일이 생성되고 DB에 반영된다.
+// 도메인 설명과 비즈니스 규칙(R1~R8)은 docs/DOMAIN.md 참고.
+// 용어: 스키마(schema) / 마이그레이션(migration) / PK / FK / 정규화
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique // 용어: 유니크 제약. 같은 이메일로 두 번 가입할 수 없다.
+  passwordHash String   @map("password_hash") // 비밀번호 원문은 절대 저장하지 않는다. 용어: 해싱 vs 암호화, 솔트
+  name         String
+  role         Role     @default(USER) // 용어: RBAC (Role-Based Access Control). ADMIN = 총무팀
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  reservations Reservation[]
+
+  @@map("users")
+}
+
+// 층. 예: "본사 7층"
+model Floor {
+  id        Int      @id @default(autoincrement())
+  name      String
+  isActive  Boolean  @default(true) @map("is_active") // 공사 등으로 층 전체를 막을 때 false (R5)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  seats Seat[]
+
+  @@map("floors")
+}
+
+// 좌석. 코드는 사람이 부르는 이름이자 좌석맵의 라벨. 예: "7F-A-01"
+model Seat {
+  id        Int      @id @default(autoincrement())
+  floorId   Int      @map("floor_id")
+  code      String   @unique
+  isActive  Boolean  @default(true) @map("is_active") // 고장·점검 좌석은 false (R5)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  floor        Floor         @relation(fields: [floorId], references: [id]) // 용어: FK, 조인
+  reservations Reservation[]
+
+  @@map("seats")
+}
+
+// 예약 = 좌석 1개 × 하루(date). 시간대 개념이 없다 (R1).
+model Reservation {
+  id        Int               @id @default(autoincrement())
+  seatId    Int               @map("seat_id")
+  userId    Int               @map("user_id")
+  date      DateTime          @db.Date // MySQL DATE 타입. 시각 없음. 변환은 src/common/utils/date.ts 에서만 한다.
+  status    ReservationStatus @default(CONFIRMED)
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  seat Seat @relation(fields: [seatId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  // TODO [2단계] 가장 잦은 조회는 "특정 층의 특정 날짜 좌석 현황"(GET /floors/:id/seats?date=)과
+  //   "특정 사용자의 오늘 이후 예약"(GET /reservations/me)이다. 각각 어떤 인덱스가 필요한가?
+  //   - @@index([...]) 를 추가하고, `pnpm seed:bulk` 로 데이터를 채운 뒤 추가 전/후 EXPLAIN 결과를 README 에 기록할 것.
+  //   - 용어: 복합 인덱스, 컬럼 순서, 카디널리티, EXPLAIN 의 type / key / rows
+
+  // TODO [4단계] 규칙 두 개를 DB 가 보장하게 하려면? (R2: 한 좌석은 하루에 한 명, R3: 한 사람은 하루에 한 좌석)
+  //   - @@unique([seatId, date]) 와 @@unique([userId, date]) 만으로 충분한가?
+  //     취소(CANCELLED)된 뒤 같은 좌석·날짜를 다시 예약해야 하는 R7 과 충돌한다.
+  //     MySQL 에는 "status 가 CONFIRMED 일 때만" 같은 조건부 유니크가 없다. 그럼 어떻게 풀 수 있을까?
+  //     힌트: MySQL 유니크 인덱스는 NULL 을 서로 다른 값으로 취급한다.
+  //   - 트랜잭션 안에서 SELECT ... FOR UPDATE 로 잠그는 방식(reservations.service.ts v2)과 비교해볼 것.
+  //   - 용어: 레이스 컨디션, 유니크 제약, 비관적 락, 낙관적 락, 격리 수준, 데드락
+
+  @@map("reservations")
+}
