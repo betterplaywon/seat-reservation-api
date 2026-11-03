@@ -17,7 +17,9 @@ services:
       MYSQL_USER: app # 이 계정은 seat_reservation 스키마 안에서만 권한을 받는다 (아래 init SQL 참고)
       MYSQL_PASSWORD: app1234
     ports:
-      - "3306:3306"
+      # 호스트(내 Mac) 3307 → 컨테이너 3306. 로컬에 MySQL 이 이미 설치되어 3306 을 쓰는 경우가 많아 피했다 (docs/REVIEW.md 2번).
+      # 앱은 localhost:3307 로 접속한다 (.env 의 DATABASE_URL). 컨테이너 안에서는 여전히 3306 이다.
+      - "3307:3306"
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
