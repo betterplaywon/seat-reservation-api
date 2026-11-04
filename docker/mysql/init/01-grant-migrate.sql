@@ -1,0 +1,12 @@
+-- MySQL 컨테이너의 볼륨이 "처음" 만들어질 때 한 번만 실행된다 (/docker-entrypoint-initdb.d).
+-- 이미 볼륨이 있으면 실행되지 않는다. 다시 적용하려면 `docker compose down -v` 로 볼륨을 지우고 다시 띄운다.
+--
+-- 왜 필요한가
+--   docker-compose.yml 의 MYSQL_USER(app) 는 seat_reservation 스키마 안에서만 권한을 받는다.
+--   `prisma migrate dev` 는 마이그레이션 파일을 검증하려고 임시 "섀도 데이터베이스"를 새로 만들었다 지우므로,
+--   서버 전역 CREATE/DROP 권한이 없으면 P3014 (could not create the shadow database) 로 실패한다.
+--   아래는 Prisma 문서가 MySQL 에 요구하는 권한 그대로다.
+--   운영에서 쓰는 `prisma migrate deploy` 는 섀도 DB 가 필요 없으므로 이 권한도 필요 없다.
+--
+-- 용어: 권한(privilege) / 최소 권한 원칙 / 섀도 데이터베이스(shadow database) / migrate dev vs migrate deploy
+GRANT CREATE, ALTER, DROP, REFERENCES ON *.* TO 'app'@'%';
