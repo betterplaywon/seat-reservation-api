@@ -1,0 +1,20 @@
+# docker build 가 데몬에 보내는 "빌드 컨텍스트"에서 뺄 것.
+# Dockerfile 의 COPY . . 가 이 파일들을 이미지에 넣지 못하게 막는다.
+# 지금은 Dockerfile 이 없어 쓰이지 않지만 6단계(앱 컨테이너화) 전에 미리 둔다.
+# 용어: 빌드 컨텍스트(build context) — docker build 시작 시 Docker 데몬에 넘기는 파일 묶음.
+
+# 비밀 정보. 이미지에 들어가면 레지스트리에 올릴 때 같이 퍼진다. (.env.example 은 플레이스홀더라 허용)
+.env
+.env.*
+!.env.example
+
+# 이미지 안에서 다시 설치·빌드하므로 호스트 산출물은 보내지 않는다 (용량·캐시 무효화 방지)
+node_modules/
+dist/
+
+# 런타임에 필요 없는 것
+.git/
+.claude/
+docs/
+*.log
+.DS_Store

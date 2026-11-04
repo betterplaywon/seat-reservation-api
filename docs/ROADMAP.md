@@ -138,6 +138,7 @@ MVP 6단계에 해당하므로 ROADMAP 항목이 아니라 "아직 안 만든 �
 
 | 파일 | 내용 |
 |---|---|
+| `.dockerignore` | 이미 추가됨. `.env`, `node_modules`, `dist`, `.git` 을 빌드 컨텍스트에서 제외. Dockerfile 을 쓰기 전에 내용이 맞는지 한 번 더 본다 |
 | `Dockerfile` | 멀티스테이지. 빌드 스테이지: `corepack enable` → `pnpm install --frozen-lockfile` → `pnpm prisma:generate` → `pnpm build`. 런타임 스테이지: `node:22-slim` 에 `dist/`, `node_modules`(prod 만: `pnpm install --prod --frozen-lockfile`), `prisma/` 복사. 비 root 사용자로 실행 |
 | `docker-compose.prod.yml` | `app`(빌드 또는 이미지), `mysql`(포트 외부 비공개, 볼륨, `--innodb-buffer-pool-size=256M` 등 소형 VM 용 메모리 제한), `caddy`(80/443, 볼륨에 인증서 저장). 앱 시작 커맨드: `npx prisma migrate deploy && node dist/main` |
 | `Caddyfile` | `api.example.duckdns.org { reverse_proxy app:3000 }` — 두 줄로 TLS 자동 발급 |
