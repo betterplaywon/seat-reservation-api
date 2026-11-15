@@ -45,4 +45,11 @@ async function bootstrap() {
   console.log(`Server listening on http://localhost:${port} (docs: /docs)`);
 }
 
-bootstrap();
+// 부팅 실패(DB 접속 불가, 포트 충돌 등)는 원인을 로그에 남기고 종료 코드 1 로 끝낸다.
+// .catch 가 없으면 Node 의 기본 동작에 맡기게 된다. `--unhandled-rejections=warn` 옵션이나
+// unhandledRejection 리스너가 있으면 부팅에 실패해도 종료 코드가 0 이 된다.
+// 용어: 종료 코드(exit code. 0 은 성공, 그 외는 실패)
+bootstrap().catch((err) => {
+  console.error('bootstrap failed', err);
+  process.exit(1);
+});
