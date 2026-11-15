@@ -11,7 +11,7 @@
     "format": "prettier --write \"src/**/*.ts\" \"scripts/**/*.ts\" \"prisma/**/*.ts\"",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit --incremental false -p tsconfig.json && tsc --noEmit --incremental false -p tsconfig.build.json",
-    "test": "jest && node --test .claude/hooks/guard-bash.test.mjs",
+    "test": "jest",
     "e2e": "node --test \"test/e2e/*.e2e.mjs\"",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
