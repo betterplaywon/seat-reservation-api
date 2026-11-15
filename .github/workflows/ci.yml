@@ -1,0 +1,77 @@
+# CI 게이트: 린트·타입체크·테스트·빌드·E2E 가 전부 통과해야 머지할 수 있다.
+# 용어: CI(Continuous Integration) — 코드를 올릴 때마다 서버가 자동으로 검사를 돌리는 것.
+#
+# 주의: 이 파일만으로는 "게이트"가 아니다. 워크플로우는 결과를 보고할 뿐이고,
+# 실제 강제는 GitHub 저장소 Settings → Branches → Branch protection rule 에서
+# "Require status checks to pass before merging" 에 아래 verify 잡을 등록해야 완성된다.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# 이 워크플로우는 저장소를 읽기만 한다. 권한을 파일에 적어 두면 레포 기본 설정이 바뀌어도 토큰이 쓰기 권한을 얻지 않는다.
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    # 로컬의 docker compose mysql 과 같은 역할. 계정은 로컬 개발용 기본값(docker-compose.yml)과 같다.
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: seat_reservation
+          MYSQL_USER: app
+          MYSQL_PASSWORD: app1234
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -uroot -proot"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: mysql://app:app1234@localhost:3306/seat_reservation
+    steps:
+      # 액션은 태그가 아니라 커밋 SHA 로 고정한다. 태그는 액션 저장소 쪽에서 다른 커밋으로 옮길 수 있다.
+      # 버전을 올릴 때는 새 릴리스의 커밋 SHA 로 바꾸고 주석의 버전도 고친다 (dependabot 이 달마다 PR 을 연다).
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # 토큰을 .git/config 에 남기지 않는다. 뒤의 pnpm install 이 실행하는 의존성 스크립트가 읽을 수 없게.
+          persist-credentials: false
+
+      # packageManager 필드(pnpm@10.x)를 읽어 같은 pnpm 버전을 설치한다.
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # --frozen-lockfile: 락파일과 package.json 이 어긋나면 설치를 실패시킨다.
+      - run: pnpm install --frozen-lockfile
+
+      # Prisma 클라이언트 생성(생성 코드는 git 에 없다)과 스키마 문법 검사.
+      - run: pnpm prisma:generate
+      - run: pnpm exec prisma validate
+
+      # 마이그레이션 파일이 있으면 테스트 DB 에 적용한다. 초기 마이그레이션은 README 1단계에서 만들어진다.
+      - name: prisma migrate deploy
+        run: |
+          if [ -d prisma/migrations ]; then
+            pnpm exec prisma migrate deploy
+          else
+            echo "prisma/migrations 가 아직 없다. 건너뛴다."
+          fi
+
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+      # 빌드한 dist/main 을 실제로 띄워 확인한다 (test/e2e).
+      - run: pnpm e2e
