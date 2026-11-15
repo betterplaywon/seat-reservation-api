@@ -29,7 +29,7 @@
 - [x] 1. 차단 · `prisma migrate dev` 가 섀도 DB 권한 오류(P3014)로 실패할 가능성 · 1단계
 - [x] 2. 차단 · 이 머신에 Docker 가 없고 3306 을 네이티브 MySQL 이 점유 · 1단계
 - [x] 3. 결함 · `.env` 의 `APP_TIMEZONE` 이 `date.ts` 에 반영되지 않음 · 1단계
-- [ ] 4. 결함 · `HttpExceptionFilter` 주석("응답이 멈춘다")이 실제와 다름 · 주석은 지금, 구현은 5단계
+- [x] 4. 결함 · `HttpExceptionFilter` 주석("응답이 멈춘다")이 실제와 다름 · 주석은 지금, 구현은 5단계
 - [ ] 5. 개선 · `ValidationPipe` 와 DTO 기본 데코레이터를 3단계 전에 먼저 켜기 · 3단계 전
 - [ ] 6. 개선 · `enableShutdownHooks()` 와 `bootstrap().catch` 추가 · 1단계
 - [ ] 7. 개선 · 컨트롤러의 날짜 기본값·검증 (`?date=` 빈 값, ADMIN 조회의 `date` 누락) · 2단계·3단계
@@ -125,7 +125,7 @@
   - 지금: 주석을 "등록하면 에러 응답이 Express 기본 HTML 페이지로 바뀌고, 개발 모드에서는 스택이 클라이언트에 노출된다" 로 고친다.
   - 5단계 구현 체크리스트: (a) 필터 안에서 throw 하지 않고 `response.status(...).json(...)` 으로 끝낸다. (b) `HttpException` 이 아닌 에러는 500 으로 감싸고 내부 메시지는 응답에 넣지 않는다(로그에만). (c) Prisma `P2002` 를 409 로 바꾸는 자리를 서비스로 할지 필터로 할지 정하고 이유를 적는다. (d) 응답 형식은 DOMAIN.md 5절 `{ statusCode, error, message, path, timestamp }`.
 - 완료 기준: 구현 후 검증 실패 400(예: `POST /auth/login` 에 빈 본문)과 강제로 `TypeError` 를 던지는 핸들러의 500 이 모두 `content-type: application/json` 이고 DOMAIN.md 형식이다. 500 응답에 내부 메시지와 스택이 없다.
-- 처리:
+- 처리: 2026-11-15 · 브랜치 `docs/exception-filter-stub-comment` (`244df1b`) · "지금" 몫인 주석만 고쳤다. 최소 앱이 아니라 실제 `AppModule` 에 스텁을 등록해 다시 확인했다(Nest 11.2.8 · Express 5.2.1). 정상 응답은 200 JSON 그대로이고, 400(깨진 JSON 본문)·404·409·500·501 은 모두 `text/html` 로 바뀐다. 본문의 스택과 서버 경로는 `NODE_ENV` 가 `production` 이 아닐 때 실린다(빈 값도 Express 가 `development` 로 본다). `production` 에서는 HTML 이지만 상태 문구만 나온다. 그래서 주석에는 "개발 모드" 대신 "production 이 아니면" 이라고 적었다. 코드는 그대로라 빌드 결과(`dist` 의 `.js` 28개 해시)가 수정 전과 같다. 주석이 늘어 `throw exception` 은 23행으로 밀렸다. 5단계 구현 체크리스트 (a)~(d) 와 위 완료 기준은 아직 남아 있고, 필터를 구현하는 5단계 PR 에서 확인한다(코드의 `TODO [5단계]` 와 주석이 이 항목을 가리킨다).
 
 #### 5. `ValidationPipe` 와 DTO 기본 데코레이터를 3단계 전에 켜기 (개선 · 정적 분석)
 

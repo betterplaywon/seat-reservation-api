@@ -13,7 +13,11 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException } from '@nestjs/co
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
-    // 구현 전까지는 등록하지 말 것 (main.ts 의 TODO 참고). 등록하면 모든 응답이 멈춘다.
+    // 구현 전까지는 등록하지 말 것 (main.ts 의 TODO 참고).
+    // 필터 안에서 다시 throw 하면 Nest 가 아니라 Express 의 기본 에러 핸들러가 응답을 만든다.
+    //   - 정상 응답은 그대로다. 에러 응답만 JSON 대신 HTML 페이지로 바뀐다.
+    //   - NODE_ENV 가 production 이 아니면 그 페이지에 스택 트레이스(서버 파일 경로 포함)가 실린다.
+    // 확인한 내용과 5단계 구현 체크리스트는 docs/REVIEW.md 4번.
     const _isHttp = exception instanceof HttpException;
     const _ctx = host.switchToHttp();
     throw exception;
