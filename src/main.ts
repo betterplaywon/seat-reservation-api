@@ -39,4 +39,9 @@ async function bootstrap() {
   console.log(`Server listening on http://localhost:${port} (docs: /docs)`);
 }
 
-bootstrap();
+// 부팅에 실패하면(DB 접속 불가, 포트 충돌 등) 원인을 로그에 남기고 종료 코드 1 로 끝낸다.
+// 용어: 종료 코드(exit code. 0 은 성공, 그 외는 실패)
+bootstrap().catch((err) => {
+  console.error('bootstrap failed', err);
+  process.exit(1);
+});
