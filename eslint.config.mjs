@@ -3,8 +3,8 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    // .audit·.claude/worktrees 는 에이전트의 로컬 작업물이라 git 에 없다. 보지 않으면 커밋 전 lint 가 남의 사본에서 막힌다.
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**', '.audit/**', '.claude/worktrees/**'],
+    // .audit 과 .claude 는 git 에 없는 로컬 전용 폴더다. 검사 대상에서 뺀다.
+    ignores: ['dist/**', 'node_modules/**', 'coverage/**', '.audit/**', '.claude/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
