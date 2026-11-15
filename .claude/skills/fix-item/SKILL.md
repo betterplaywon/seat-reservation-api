@@ -31,11 +31,12 @@ type 은 fix / docs / chore / feat 중 하나. 주제는 영어 소문자와 하
 
 - 변경 하나당 커밋 하나. 메시지는 `type(범위): 한국어 설명`, 본문에 이유, 끝에 `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - 주석 수정, 코드 수정, 문서 수정은 커밋을 나눈다.
-- 커밋 전 훅이 비밀 정보와 타입 검사를 한다. 막히면 원인을 고친 뒤 다시 커밋한다.
+- 커밋 전 훅이 비밀 정보 검사와 lint·타입 검사를 한다. 막히면 원인을 고친 뒤 다시 커밋한다.
+- 고친 동작을 고정하는 테스트를 같이 넣는다 (`src/**/*.spec.ts`, API 동작이면 `test/e2e/`).
 
 ## 4. 검증
 
-- `/verify` 절차를 그대로 따른다 (타입 검사, 포맷, 컨테이너, 헬스체크).
+- `/verify` 절차를 그대로 따른다 (게이트 5개, 스키마, 컨테이너).
 - 항목의 "완료 기준" 을 실제로 재현해 확인한다. 가능하면 **고치기 전 실패를 먼저 재현**하고 고친 뒤 통과를 확인한다. 재현 스크립트는 저장소가 아니라 스크래치패드에 둔다.
 - 검증용 산출물(마이그레이션, dist, 로그, 임시 .env 값)은 되돌린다.
 
@@ -47,11 +48,23 @@ type 은 fix / docs / chore / feat 중 하나. 주제는 영어 소문자와 하
 
 ```bash
 git push -u origin <branch>
-gh pr create --title "<type>: <제목>" --body-file <스크래치패드의 본문 파일>
+gh pr create --title "점검 - <무엇을 고쳤는지>" --body-file <스크래치패드의 본문 파일>
 ```
 
-본문 구성: 배경(REVIEW N번) / 변경 / 확인한 것(표) / 남은 것 / 끝줄 `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+제목은 `<대단위> - <소규모>` 형식이다 (가드 훅이 검사한다). 본문은 `.github/pull_request_template.md` 의 5항목을 그대로 채운다: 1 배경(REVIEW N번) / 2 변경 내용·범위 밖 / 3 체크리스트(비워 둔다, 사용자가 확인) / 4 검증(표) / 5 리뷰어가 볼 것. 끝줄 `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 
-## 7. 보고
+## 7. 머지
 
-PR 링크, 커밋 목록, 검증 표, 사용자가 다음에 할 일(병합 후 실행할 명령), 새로 나온 용어 후보를 한국어로 정리한다. 병합은 사용자가 한다.
+CLAUDE.md '자율 범위' 의 머지 조건을 따른다.
+
+- 사람이 머지하는 경로(스키마, 인증, 학습 영역, Docker, CI, `.env.example`, 에이전트 장치)를 건드렸으면 merge-ready 로 보고하고 멈춘다.
+- 아니면 CI verify 가 녹색이 되기를 기다리고, 코드를 쓰지 않은 서브에이전트에게 실제 서버에서 완료 기준을 확인하게 한 뒤 PASS 면 머지한다.
+
+```bash
+gh pr checks <번호> --watch
+gh pr merge <번호> --merge --match-head-commit <검증한 head SHA>
+```
+
+## 8. 보고
+
+PR 링크, 커밋 목록, 검증 표, 머지 여부(했으면 누가 검증했는지, 안 했으면 이유), 사용자가 다음에 할 일, 새로 나온 용어 후보를 한국어로 정리한다.
