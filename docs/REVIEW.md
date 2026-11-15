@@ -31,7 +31,7 @@
 - [x] 3. 결함 · `.env` 의 `APP_TIMEZONE` 이 `date.ts` 에 반영되지 않음 · 1단계
 - [x] 4. 결함 · `HttpExceptionFilter` 주석("응답이 멈춘다")이 실제와 다름 · 주석은 지금, 구현은 5단계
 - [ ] 5. 개선 · `ValidationPipe` 와 DTO 기본 데코레이터를 3단계 전에 먼저 켜기 · 3단계 전
-- [ ] 6. 개선 · `enableShutdownHooks()` 와 `bootstrap().catch` 추가 · 1단계
+- [x] 6. 개선 · `enableShutdownHooks()` 와 `bootstrap().catch` 추가 · 1단계
 - [ ] 7. 개선 · 컨트롤러의 날짜 기본값·검증 (`?date=` 빈 값, ADMIN 조회의 `date` 누락) · 2단계·3단계
 - [ ] 8. 개선 · `FloorsController` 에 `@ApiBearerAuth()` 누락 · 3단계
 - [ ] 9. 개선 · "오늘" 기본값 계산을 컨트롤러에서 서비스로 · 2단계
@@ -40,6 +40,8 @@
 - [ ] 12. 메모 · 4단계 전 구조 결정: 좌석·층 확인은 트랜잭션 안 직접 조회, `FloorsModule` 의 미사용 export · 4단계
 - [ ] 13. 메모 · 자동 테스트·린트 부재. 5단계에 e2e 테스트 1개 · 5단계
 - [ ] 14. 메모 · `package.json#prisma`(seed 설정)가 Prisma 7 에서 제거 예정, `prisma.config.ts` 로 이전 · Prisma 7 업그레이드 시
+- [ ] 15. 개선 · E2E 파일 둘이 같은 포트(3011)를 쓰면 `pnpm e2e` 가 실패 · 3단계 전
+- [ ] 16. 메모 · 종료 신호 뒤 대기 시간에 상한이 없음 (끝나지 않는 요청이 있으면 종료되지 않음) · 6단계
 
 ### 아키텍처 · MVP 범위 판단 (변경 불필요)
 
@@ -158,7 +160,7 @@
   ```
 
 - 완료 기준: `pnpm start:dev` 후 Ctrl+C 로 종료할 때 Prisma 연결 종료가 확인된다. `PrismaService.onModuleDestroy` 에 로그 한 줄을 임시로 넣어 보면 된다.
-- 처리:
+- 처리: 2026-11-15 · 브랜치 `fix/shutdown-hooks-bootstrap-catch` (`616e26d`, `83b2be9`, 테스트 `b943dea`) · 수정 방향대로 넣되 `enableShutdownHooks` 에는 `SIGTERM`·`SIGINT` 두 개를 적었다. 인자가 없으면 Nest 가 `SIGSEGV`·`SIGQUIT` 를 포함한 시그널 11개를 가로챈다. 그 변형을 실제 앱에서 돌려 보니 진짜 세그폴트가 나도 죽지 않고 CPU 100% 로 멈췄고, 종료가 길어질 때 Ctrl+\ 도 듣지 않았다. 두 개만 적으면 세그폴트는 수정 전처럼 바로 죽고 Ctrl+\ 로 끝낼 수 있다. 완료 기준은 `pnpm start:dev` 를 가짜 터미널에서 띄우고 Ctrl+C 를 보내 확인했다. 수정 전에는 `PrismaService.onModuleDestroy` 가 불리지 않고 수정 후에는 불린다(임시 로그 대신 프리로드로 추적해 저장소 코드는 건드리지 않았다). 파일이 바뀌어 watch 가 재시작할 때도 불린다. 수정 후 종료 순서는 종료 훅 → 새 연결 거절 → 처리 중인 요청에 응답 → 받은 시그널로 종료다. 요청을 절반만 보낸 채 SIGTERM 을 보내면 수정 전에는 응답 없이 바로 죽고, 수정 후에는 MySQL 의 `app` 연결이 모두 닫힌 뒤(17 → 0) 그 요청이 200 을 받고 끝난다. 부팅 실패는 DB 접속 불가·포트 충돌·잘못된 `PORT` 세 가지 모두 `bootstrap failed` 로그와 종료 코드 1 이다. 위 증상과 다르게 나온 것이 두 가지 있다. (1) 수정 전에도 기본 설정에서는 종료 코드가 1 이었지만 `--unhandled-rejections=warn` 옵션이나 `unhandledRejection` 리스너가 있으면 0 이었다. 수정 후에는 그때도 1 이다. (2) MySQL 의 `Aborted_clients` 는 수정 후에도 연결 수만큼 늘어난다. Prisma 6.19.3 은 `$disconnect()` 만 따로 불러도 그렇게 집계되므로 이 값으로는 종료 훅이 돌았는지 알 수 없다. 대기 시간 상한은 16번으로 남겼고, `docker stop` 은 확인하지 않았다(6단계).
 
 #### 7. 컨트롤러의 날짜 기본값·검증 (개선 · 정적 분석)
 
@@ -221,6 +223,31 @@
 - 증상: `prisma migrate dev` 실행 시 경고. `The configuration property package.json#prisma is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., prisma.config.ts)`. Prisma 6 에서는 그대로 동작한다.
 - 수정 방향: Prisma 7 로 올릴 때 `prisma.config.ts` 로 옮긴다(https://pris.ly/prisma-config). 지금은 바꾸지 않는다.
 - 완료 기준: Prisma 7 업그레이드 후 `pnpm db:seed` 와 `prisma migrate reset` 의 시드가 동작한다.
+- 처리:
+
+#### 15. E2E 파일 둘이 같은 포트를 쓰면 충돌 (개선 · 실행 확인)
+
+- 위치: `package.json` 의 `e2e` 스크립트, `test/e2e/health.e2e.mjs:12` (포트 기본값 3011), `test/e2e/health.e2e.mjs:4` (시나리오는 파일을 추가하라는 안내)
+- 증상: `health.e2e.mjs` 처럼 `before` 에서 `dist/main` 을 3011 에 띄우는 파일이 하나 더 생기면 `pnpm e2e` 가 실패한다. `health.e2e.mjs` 를 복사한 임시 파일로 2026-11-15 에 두 차례(4번·6번 처리 때) 5번씩 돌려 10번 모두 실패했다. 늦게 뜬 서버가 `listen EADDRINUSE: address already in use :::3011` 로 죽는다. 6번 처리 때 추가한 `test/e2e/lifecycle.e2e.mjs` 는 빈 포트를 쓰므로 걸리지 않는다.
+- 원인: `node --test` 는 테스트 파일을 동시에 실행하고, 파일마다 서버를 같은 포트에 띄운다.
+- 수정 방향 (하나 선택)
+  - A. `e2e` 스크립트에 `--test-concurrency=1` 을 붙여 파일을 하나씩 실행한다. 한 줄 수정이다. 같은 임시 파일로 5번 돌려 5번 모두 통과했다. 파일이 늘수록 전체 시간이 길어진다.
+  - B. 서버를 띄우는 코드를 공용 헬퍼로 빼고 파일마다 빈 포트를 받는다 (`lifecycle.e2e.mjs` 의 `listenOnFreePort` 방식). 파일이 동시에 돌 수 있지만 헬퍼를 만들고 `health.e2e.mjs` 를 고쳐야 한다.
+  - 추천: A. 느려지면 그때 B 로 바꾼다.
+- 완료 기준: 3011 을 쓰는 E2E 파일이 2개 있어도 `pnpm e2e` 가 통과한다.
+- 처리:
+
+#### 16. 종료 신호 뒤 대기 시간에 상한이 없음 (메모 · 실행 확인)
+
+- 위치: `src/main.ts` 의 `app.enableShutdownHooks(...)` (6번 처리로 추가)
+- 증상: 종료 신호를 받으면 처리 중인 요청이 끝날 때까지 기다린다. 요청이 끝나지 않으면 종료도 끝나지 않는다. 요청을 절반만 보낸 연결을 열어 둔 채 SIGINT 를 보냈더니 150초가 지나도 프로세스가 살아 있었다. `pnpm start:dev` 에서는 Ctrl+C 를 두 번 눌러도 끝나지 않고 Ctrl+\ (SIGQUIT) 로 끝난다. 처리 중인 요청이 없으면(유휴 keep-alive 연결만 있을 때 포함) 4~6ms 만에 끝난다.
+- 원인: Nest 는 종료할 때 `httpServer.close()` 가 끝나기를 기다리고, Node 의 `close()` 는 진행 중인 연결이 끝나야 끝난다. 종료가 시작된 뒤에 온 두 번째 시그널은 Nest 가 무시한다.
+- 수정 방향 (결정 필요)
+  - A. 그대로 둔다. 로컬에서는 Ctrl+\ 로 끝낸다. 컨테이너에서는 `docker stop` 이 기본 10초 뒤 SIGKILL 을 보내므로 상한이 있다 (Docker 문서 기준, 이 저장소에서는 확인하지 않았다).
+  - B. `NestFactory.create(AppModule, { forceCloseConnections: true })`. 종료할 때 열린 연결을 모두 끊는다. 실험용 빌드로 확인했다: 끝나지 않는 요청이 있어도 9ms 만에 끝나고 종료 훅도 돌지만, 처리 중이던 요청은 응답을 받지 못한다 (6번 처리 전과 같다).
+  - C. 종료 신호를 받고 정한 시간이 지나면 강제로 끝내는 타이머를 둔다. 처리 중인 요청을 기다리면서 상한도 생기지만, 코드와 정할 값이 늘어난다. 확인하지 않았다.
+  - 추천: 지금은 A. 6단계에서 컨테이너 종료를 확인할 때 C 가 필요한지 본다.
+- 완료 기준: 무엇을 골랐는지와 이유를 `처리` 줄에 적는다. B 나 C 를 고르면 끝나지 않는 요청이 있어도 정한 시간 안에 프로세스가 끝나는 것을 확인한다.
 - 처리:
 
 ### 재검증 명령
