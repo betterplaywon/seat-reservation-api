@@ -28,7 +28,7 @@
 
 - [x] 1. 차단 · `prisma migrate dev` 가 섀도 DB 권한 오류(P3014)로 실패할 가능성 · 1단계
 - [x] 2. 차단 · 이 머신에 Docker 가 없고 3306 을 네이티브 MySQL 이 점유 · 1단계
-- [ ] 3. 결함 · `.env` 의 `APP_TIMEZONE` 이 `date.ts` 에 반영되지 않음 · 1단계
+- [x] 3. 결함 · `.env` 의 `APP_TIMEZONE` 이 `date.ts` 에 반영되지 않음 · 1단계
 - [ ] 4. 결함 · `HttpExceptionFilter` 주석("응답이 멈춘다")이 실제와 다름 · 주석은 지금, 구현은 5단계
 - [ ] 5. 개선 · `ValidationPipe` 와 DTO 기본 데코레이터를 3단계 전에 먼저 켜기 · 3단계 전
 - [ ] 6. 개선 · `enableShutdownHooks()` 와 `bootstrap().catch` 추가 · 1단계
@@ -106,7 +106,7 @@
   pnpm exec ts-node -e "require('./src/app.module'); const d = require('./src/common/utils/date'); setTimeout(() => console.log('todayIn()=', d.todayIn(), '| todayIn(env)=', d.todayIn(process.env.APP_TIMEZONE)), 50)"
   ```
 
-- 처리:
+- 처리: 2026-11-15 · 브랜치 `fix/app-timezone-lazy-read` (`5398f7e`), 수정 방향대로 `appTimeZone()` 함수로 변경. 참고: 지금은 위 증상이 그대로 재현되지 않는다. `prisma generate` 뒤에는 `@prisma/client` 가 import 될 때 프로젝트 `.env` 를 먼저 읽어 주고, `app.module.ts` 가 `PrismaModule` 을 `FloorsModule` 보다 먼저 import 하기 때문이다 (우연히 순서가 맞은 상태). 그래서 실제 `.env` 는 건드리지 않고 순서 의존을 직접 재현했다: `date.ts` 를 먼저 require → `process.env.APP_TIMEZONE='Pacific/Kiritimati'` 설정 → `todayIn(undefined, 2026-11-15T12:00Z)`. 수정 전 `2026-11-15`(서울 기준, 틀림), 수정 후 `2026-11-16`(`todayIn(env)` 와 같음). 완료 기준 명령은 두 타임존의 날짜가 같은 시간대(한국 00~19시)에 돌리면 항상 통과하므로 `now` 를 고정해서 확인해야 한다.
 
 #### 4. `HttpExceptionFilter` 주석이 실제 동작과 다름 (결함 · 실행 확인)
 

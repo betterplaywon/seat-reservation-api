@@ -6,8 +6,14 @@
 // 한국(UTC+9)에서 toString() 하면 11월 10일 09:00 으로 보인다. 서버가 UTC 로 돌면 "오늘"이 한국과 다를 수도 있다.
 // 그래서 (1) 앱 전체는 'YYYY-MM-DD' 문자열만 주고받고, (2) DB(@db.Date)와의 변환과 "오늘" 계산은 여기서만 한다.
 
-/** "오늘"을 판단할 타임존. ConfigService 를 쓰지 않는 이유: 유틸 함수에서 DI 를 받기 어렵고, 부팅 중 한 번만 읽으면 되기 때문. */
-export const APP_TIMEZONE = process.env.APP_TIMEZONE ?? 'Asia/Seoul';
+/**
+ * "오늘"을 판단할 타임존. ConfigService 를 쓰지 않는 이유: 유틸 함수에서 DI 를 받기 어렵다.
+ * 상수가 아니라 함수인 이유: 상수는 이 파일이 처음 import 되는 순간 값이 굳는데,
+ * 그때 .env 가 process.env 에 들어와 있다는 보장이 없다 (import 순서에 달려 있다). 함수는 호출할 때 읽는다.
+ */
+export function appTimeZone(): string {
+  return process.env.APP_TIMEZONE ?? 'Asia/Seoul';
+}
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -29,7 +35,7 @@ export function fromDbDate(value: Date): string {
 }
 
 /** 특정 타임존의 "오늘"을 'YYYY-MM-DD' 로. 서버가 UTC 로 돌아도 한국 기준 오늘이 나온다. */
-export function todayIn(timeZone: string = APP_TIMEZONE, now: Date = new Date()): string {
+export function todayIn(timeZone: string = appTimeZone(), now: Date = new Date()): string {
   // en-CA 로케일은 날짜를 YYYY-MM-DD 로 표기한다.
   return new Intl.DateTimeFormat('en-CA', {
     timeZone,
