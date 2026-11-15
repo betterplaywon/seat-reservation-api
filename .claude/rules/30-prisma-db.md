@@ -11,7 +11,7 @@ paths:
 ## 로컬 DB
 
 - MySQL 8.4 는 `docker compose up -d --wait` 로 띄운다. 서비스 `mysql`, 컨테이너 `seat-mysql`, 호스트 포트 **3307** (이 Mac 의 네이티브 MySQL 9.2 가 3306 을 쓴다).
-- `docker/mysql/init/*.sql` 은 볼륨이 **처음 만들어질 때 한 번만** 실행된다. 바꾼 뒤 다시 적용하려면 `docker compose down -v` 로 볼륨을 지워야 하고 데이터도 같이 사라진다. 사용자 확인 후에만 실행한다 (`/db-reset`).
+- `docker/mysql/init/*.sql` 은 볼륨이 **처음 만들어질 때 한 번만** 실행된다. 바꾼 뒤 다시 적용하려면 `docker compose down -v` 로 볼륨을 지워야 하고 데이터도 같이 사라진다. 볼륨 삭제는 사용자가 직접 실행한다 (가드 훅이 에이전트의 실행을 막는다. 절차는 `/db-reset`).
 - `app` 계정에는 `prisma migrate dev` 의 섀도 DB 생성용으로 `CREATE, ALTER, DROP, REFERENCES ON *.*` 가 init SQL 로 주어져 있다. `migrate deploy` 에는 필요 없다. 운영 계정에는 주지 않는다.
 
 ## 마이그레이션
