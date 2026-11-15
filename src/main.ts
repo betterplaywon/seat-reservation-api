@@ -29,9 +29,19 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
 
+  // 종료 신호(Ctrl+C, `docker stop` 등)를 받으면 바로 죽지 않고 Nest 의 종료 훅을 먼저 실행한다.
+  // 이 줄이 있어야 PrismaService.onModuleDestroy 의 $disconnect 가 불린다 (docs/REVIEW.md 6번).
+  // 용어: 시그널(signal) / 우아한 종료(graceful shutdown)
+  app.enableShutdownHooks();
+
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port);
   console.log(`Server listening on http://localhost:${port} (docs: /docs)`);
 }
 
-bootstrap();
+// 부팅에 실패하면(DB 접속 불가, 포트 충돌 등) 원인을 로그에 남기고 종료 코드 1 로 끝낸다.
+// 용어: 종료 코드(exit code. 0 은 성공, 그 외는 실패)
+bootstrap().catch((err) => {
+  console.error('bootstrap failed', err);
+  process.exit(1);
+});
