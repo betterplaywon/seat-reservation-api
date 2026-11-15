@@ -6,3 +6,10 @@ dist/
 *.log
 .DS_Store
 .claude/settings.local.json
+
+# 에이전트 자율 실행 기록(결정 로그·증거·보고서) — 로컬 전용
+.audit/
+# 서브에이전트 worktree
+.claude/worktrees/
+# jest 커버리지
+coverage/

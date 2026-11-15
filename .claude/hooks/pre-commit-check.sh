@@ -2,7 +2,7 @@
 # PreToolUse(Bash) — `git commit` 이 들어 있는 명령에만 반응한다.
 #   1) .env 계열 파일이 커밋 대상이면 막는다 (deny)
 #   2) 커밋될 변경에 비밀 정보로 보이는 문자열이 있으면 묻는다 (ask)
-#   3) .ts 파일이 포함되면 타입 검사(tsc --noEmit)를 돌리고 실패하면 묻는다 (ask)
+# 타입 검사와 lint 는 guard-bash.mjs 의 커밋 전 게이트가 맡는다.
 # 같은 명령에 `git add` 나 `commit -a` 가 있으면 아직 스테이징 전이므로 작업 트리의 변경까지 본다.
 # 손으로 테스트: echo '{"tool_input":{"command":"git commit -m x"}}' | .claude/hooks/pre-commit-check.sh
 set -o pipefail
@@ -69,14 +69,6 @@ if [ -n "$hits" ]; then
   flag ask "비밀 정보로 보이는 문자열이 커밋될 변경에 있습니다:
 $hits
 공개 저장소입니다. 플레이스홀더로 바꾸거나 .env 로 옮긴 뒤 커밋하세요. 오탐이면 그대로 진행해도 됩니다."
-fi
-
-# 3) 타입 검사 — .ts 가 포함될 때만
-if printf '%s\n' "$files" | grep -Eq '\.ts$' && [ -f tsconfig.json ] && [ -x node_modules/.bin/tsc ]; then
-  if ! out=$(node_modules/.bin/tsc --noEmit --incremental false -p tsconfig.json 2>&1); then
-    flag ask "타입 검사(tsc --noEmit)가 실패했습니다. 커밋 전에 고치는 것이 원칙입니다 (README 진행 규칙 2):
-$(printf '%s\n' "$out" | head -20)"
-  fi
 fi
 
 [ -z "$decision" ] && exit 0
