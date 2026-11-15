@@ -106,7 +106,7 @@
   pnpm exec ts-node -e "require('./src/app.module'); const d = require('./src/common/utils/date'); setTimeout(() => console.log('todayIn()=', d.todayIn(), '| todayIn(env)=', d.todayIn(process.env.APP_TIMEZONE)), 50)"
   ```
 
-- 처리: 2026-11-15 · 브랜치 `fix/app-timezone-lazy-read` (`5398f7e`), 수정 방향대로 `appTimeZone()` 함수로 변경. 참고: 지금은 위 증상이 그대로 재현되지 않는다. `prisma generate` 뒤에는 `@prisma/client` 가 import 될 때 프로젝트 `.env` 를 먼저 읽어 주고, `app.module.ts` 가 `PrismaModule` 을 `FloorsModule` 보다 먼저 import 하기 때문이다 (우연히 순서가 맞은 상태). 그래서 실제 `.env` 는 건드리지 않고 순서 의존을 직접 재현했다: `date.ts` 를 먼저 require → `process.env.APP_TIMEZONE='Pacific/Kiritimati'` 설정 → `todayIn(undefined, 2026-11-15T12:00Z)`. 수정 전 `2026-11-15`(서울 기준, 틀림), 수정 후 `2026-11-16`(`todayIn(env)` 와 같음). 완료 기준 명령은 두 타임존의 날짜가 같은 시간대(한국 00~19시)에 돌리면 항상 통과하므로 `now` 를 고정해서 확인해야 한다.
+- 처리: 2026-11-15 · 브랜치 `fix/app-timezone-lazy-read` (`5398f7e`) · 수정 방향대로 `appTimeZone()` 함수로 바꿨다. `date.ts` 를 먼저 불러온 뒤 `APP_TIMEZONE` 을 바꾸면 수정 전에는 `todayIn()` 이 예전 값(서울)을 쓰고, 수정 후에는 바뀐 값을 쓴다. 지금 구조에서는 모듈을 불러오는 순서가 우연히 맞아서 위 증상이 그대로 재현되지는 않았다.
 
 #### 4. `HttpExceptionFilter` 주석이 실제 동작과 다름 (결함 · 실행 확인)
 
@@ -125,7 +125,7 @@
   - 지금: 주석을 "등록하면 에러 응답이 Express 기본 HTML 페이지로 바뀌고, 개발 모드에서는 스택이 클라이언트에 노출된다" 로 고친다.
   - 5단계 구현 체크리스트: (a) 필터 안에서 throw 하지 않고 `response.status(...).json(...)` 으로 끝낸다. (b) `HttpException` 이 아닌 에러는 500 으로 감싸고 내부 메시지는 응답에 넣지 않는다(로그에만). (c) Prisma `P2002` 를 409 로 바꾸는 자리를 서비스로 할지 필터로 할지 정하고 이유를 적는다. (d) 응답 형식은 DOMAIN.md 5절 `{ statusCode, error, message, path, timestamp }`.
 - 완료 기준: 구현 후 검증 실패 400(예: `POST /auth/login` 에 빈 본문)과 강제로 `TypeError` 를 던지는 핸들러의 500 이 모두 `content-type: application/json` 이고 DOMAIN.md 형식이다. 500 응답에 내부 메시지와 스택이 없다.
-- 처리: 2026-11-15 · 브랜치 `docs/exception-filter-stub-comment` (`244df1b`) · "지금" 몫인 주석만 고쳤다. 최소 앱이 아니라 실제 `AppModule` 에 스텁을 등록해 다시 확인했다(Nest 11.2.8 · Express 5.2.1). 정상 응답은 200 JSON 그대로이고, 400(깨진 JSON 본문)·404·409·500·501 은 모두 `text/html` 로 바뀐다. 본문의 스택과 서버 경로는 `NODE_ENV` 가 `production` 이 아닐 때 실린다(빈 값도 Express 가 `development` 로 본다). `production` 에서는 HTML 이지만 상태 문구만 나온다. 그래서 주석에는 "개발 모드" 대신 "production 이 아니면" 이라고 적었다. 코드는 그대로라 빌드 결과(`dist` 의 `.js` 28개 해시)가 수정 전과 같다. 주석이 늘어 `throw exception` 은 23행으로 밀렸다. 5단계 구현 체크리스트 (a)~(d) 와 위 완료 기준은 아직 남아 있고, 필터를 구현하는 5단계 PR 에서 확인한다(코드의 `TODO [5단계]` 와 주석이 이 항목을 가리킨다).
+- 처리: 2026-11-15 · 브랜치 `docs/exception-filter-stub-comment` (`244df1b`) · "지금" 몫인 주석만 고쳤다. 실제 앱에 스텁을 등록해 보니 응답은 멈추지 않고, 에러 응답만 JSON 대신 HTML 로 바뀐다(`NODE_ENV` 가 `production` 이 아니면 스택 트레이스가 실린다). 5단계 구현 체크리스트 (a)~(d) 와 위 완료 기준은 필터를 구현하는 5단계 PR 에서 확인한다.
 
 #### 5. `ValidationPipe` 와 DTO 기본 데코레이터를 3단계 전에 켜기 (개선 · 정적 분석)
 
@@ -158,7 +158,7 @@
   ```
 
 - 완료 기준: `pnpm start:dev` 후 Ctrl+C 로 종료할 때 Prisma 연결 종료가 확인된다. `PrismaService.onModuleDestroy` 에 로그 한 줄을 임시로 넣어 보면 된다.
-- 처리: 2026-11-15 · 브랜치 `fix/shutdown-hooks` (`f92a2b4`, `c63a55b`) · 수정 방향 그대로 넣었다. `pnpm start:dev` 를 띄우고 Ctrl+C 를 보내면 수정 전에는 `PrismaService.onModuleDestroy` 가 불리지 않고 수정 후에는 불린다. 임시 로그를 넣는 대신 프리로드(`node -r`)로 호출을 추적해서 저장소 코드는 건드리지 않았다. 직접 볼 때는 `DEBUG=prisma:client:libraryEngine pnpm start:dev` 로 띄우고 Ctrl+C 를 누르면 `library stopped` 줄이 나온다. DB 에 접속할 수 없거나 포트가 이미 쓰이는 상태로 띄우면 `bootstrap failed` 와 원인을 남기고 종료 코드 1 로 끝난다. `docker stop` 은 확인하지 않았다(6단계).
+- 처리: 2026-11-15 · 브랜치 `fix/shutdown-hooks` (`f92a2b4`, `c63a55b`) · 수정 방향 그대로 넣었다. `pnpm start:dev` 에서 Ctrl+C 를 누르면 수정 전에는 `PrismaService.onModuleDestroy` 가 불리지 않고 수정 후에는 불린다. DB 접속 불가나 포트 충돌로 부팅에 실패하면 `bootstrap failed` 와 원인을 남기고 종료 코드 1 로 끝난다. `docker stop` 은 6단계에서 확인한다.
 
 #### 7. 컨트롤러의 날짜 기본값·검증 (개선 · 정적 분석)
 
