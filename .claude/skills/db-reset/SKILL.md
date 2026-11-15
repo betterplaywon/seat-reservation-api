@@ -6,13 +6,15 @@ disable-model-invocation: true
 
 # 로컬 DB 초기화
 
-`docker compose down -v` 는 볼륨을 지운다. 로컬 DB 의 모든 데이터(예약·사용자 포함)가 사라진다. 실행 전에 무엇이 지워지는지 한 줄로 알린다. PreToolUse 훅이 `down -v` 에서 한 번 더 확인을 요청하는데, 이것은 정상이다.
+`docker compose down -v` 는 볼륨을 지운다. 로컬 DB 의 모든 데이터(예약·사용자 포함)가 사라진다. 실행 전에 무엇이 지워지는지 한 줄로 알린다.
 
-## 1. 볼륨 삭제 후 재생성
+가드 훅(`.claude/hooks/guard-bash.mjs`)은 에이전트가 `down -v` 를 실행하는 것을 막는다. 볼륨 삭제는 **사용자가 직접** 한다. 프롬프트에 `! docker compose down -v` 를 입력해 달라고 안내하고, 실행된 것을 확인한 뒤 나머지를 진행한다.
+
+## 1. 볼륨 삭제(사용자) 후 재생성
 
 ```bash
 export PATH="$HOME/.docker/bin:$PATH"
-docker compose down -v
+# 사용자가 먼저 실행: ! docker compose down -v
 docker compose up -d --wait
 docker compose ps
 docker compose exec mysql mysql -uapp -papp1234 -e "SHOW GRANTS FOR CURRENT_USER()"
