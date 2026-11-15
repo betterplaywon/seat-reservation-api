@@ -31,7 +31,7 @@
 - [x] 3. 결함 · `.env` 의 `APP_TIMEZONE` 이 `date.ts` 에 반영되지 않음 · 1단계
 - [x] 4. 결함 · `HttpExceptionFilter` 주석("응답이 멈춘다")이 실제와 다름 · 주석은 지금, 구현은 5단계
 - [ ] 5. 개선 · `ValidationPipe` 와 DTO 기본 데코레이터를 3단계 전에 먼저 켜기 · 3단계 전
-- [ ] 6. 개선 · `enableShutdownHooks()` 와 `bootstrap().catch` 추가 · 1단계
+- [x] 6. 개선 · `enableShutdownHooks()` 와 `bootstrap().catch` 추가 · 1단계
 - [ ] 7. 개선 · 컨트롤러의 날짜 기본값·검증 (`?date=` 빈 값, ADMIN 조회의 `date` 누락) · 2단계·3단계
 - [ ] 8. 개선 · `FloorsController` 에 `@ApiBearerAuth()` 누락 · 3단계
 - [ ] 9. 개선 · "오늘" 기본값 계산을 컨트롤러에서 서비스로 · 2단계
@@ -158,7 +158,7 @@
   ```
 
 - 완료 기준: `pnpm start:dev` 후 Ctrl+C 로 종료할 때 Prisma 연결 종료가 확인된다. `PrismaService.onModuleDestroy` 에 로그 한 줄을 임시로 넣어 보면 된다.
-- 처리:
+- 처리: 2026-11-15 · 브랜치 `fix/shutdown-hooks` (`f92a2b4`, `c63a55b`) · 수정 방향 그대로 넣었다. `pnpm start:dev` 를 띄우고 Ctrl+C 를 보내면 수정 전에는 `PrismaService.onModuleDestroy` 가 불리지 않고 수정 후에는 불린다. 임시 로그를 넣는 대신 프리로드(`node -r`)로 호출을 추적해서 저장소 코드는 건드리지 않았다. 직접 볼 때는 `DEBUG=prisma:client:libraryEngine pnpm start:dev` 로 띄우고 Ctrl+C 를 누르면 `library stopped` 줄이 나온다. DB 에 접속할 수 없거나 포트가 이미 쓰이는 상태로 띄우면 `bootstrap failed` 와 원인을 남기고 종료 코드 1 로 끝난다. `docker stop` 은 확인하지 않았다(6단계).
 
 #### 7. 컨트롤러의 날짜 기본값·검증 (개선 · 정적 분석)
 
